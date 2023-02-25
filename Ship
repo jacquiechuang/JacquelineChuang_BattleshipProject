@@ -1,0 +1,93 @@
+/**
+ * @author Charles Huang
+ * @author Jacqueline Chuang
+ *
+ * Project: Battleship Game
+ * Teacher: Ms. Hemiup
+ * Spring 2022
+ */
+
+/**
+ * Ship class contains ship information
+ * this class processes certain info about the ship placement and keeps track of info for statistics
+ */
+
+public class Ship {
+    private char 	type;  	        // ‘A’, ‘B’, ‘D’, ‘S’, ‘P’
+    private boolean horizontal;     // horizontal or vertical
+    private int     length;         // ship length
+    private int     begX, begY;     // beginning coordinates on the 10x10 board
+    private int     endX, endY;     // ending coordinates on the 10x10 board
+    private int 	hits;           // the number of hits
+
+    // constructor
+    public Ship(char c, boolean h, int l, int x0, int y0, int x1, int y1) {
+        this.type = c;
+        this.horizontal = h;
+        this.length = l;
+        this.begX = x0;
+        this.begY = y0;
+        this.endX = x1;
+        this.endY = y1;
+        this.hits = 0;
+    }
+
+    // getters
+    public char getType() { return this.type; }
+
+    // setters
+    public int getHits() { return this.hits; }
+
+    // increase hits
+    public void incHits() { this.hits++; }
+
+    // get full type name
+    public String getTypename() {
+        String name = "";
+        switch(type) {
+            case 'A':
+                name = "aircraft";
+                break;
+            case 'B':
+                name = "battleship";
+                break;
+            case 'D':
+                name = "destroyer";
+                break;
+            case 'S':
+                name = "submarine";
+                break;
+            case 'P':
+                name = "patrolboat";
+                break;
+            default:
+                break;
+        }
+        return name;
+    }
+
+    // isSunk
+    public boolean isSunk() { return hits >= length; }
+
+    // check if bomb(x,y) hits this ship or not
+    public boolean onTarget(int x, int y) {
+        boolean value = false;
+        if (horizontal) {
+            value = (x == begX && x == endX) && (y >= begY && y <= endY);
+        } else {
+            value = (y == begY && y == endY) && (x >= begX && x <= endX);
+        }
+        return value;
+    }
+
+    // reset the ship status
+    public void reset() {
+        // TODO
+
+    }
+
+    // print method for checking ship statistics
+    public void print(){
+        System.out.println(this.type + " " + this.horizontal + " " + this.length + " " + this.begX + " " + this.begY + " " + this.endX + " " + this.endY);
+    }
+}

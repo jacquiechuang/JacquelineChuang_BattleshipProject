@@ -1,0 +1,888 @@
+/**
+ * @author Charles Huang
+ * @author Jacqueline Chuang
+ *
+ * Project: Battlesship Game
+ * Teacher: Ms. Hemiup
+ * Spring 2022
+ */
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+
+/**
+ * Board class contains board information, ships, and the battle status.
+ * It helps to place ships and processes info while playing the game
+ */
+
+public class Board {
+    private String      playerName;     // show on the top of the grid board
+    private JFrame      placeshipFrame; // the frame for ship info placement
+    private JTextField  inputText;      // the text field to input ship positions
+    private JPanel      panelBoard;     // the panel containing the buttons
+    private JButton[][] buttonGrid;     // 10*10: buttons on grid board
+    private char[][]    buttonStatus;   // 10*10: 'U' (unshoot), 'H' (hit), 'M' (miss)
+    private char[][]    shipTypes;      // 10*10: the ship char types on the board. ' ' means no ship.
+    private boolean     isReady;        // set this flag if ships have been placed
+
+    private final int aSize = 5;        // Aircraft carrier size
+    private final int bSize = 5;        // Battleship size
+    private final int dSize = 3;        // Destroyer size
+    private final int sSize = 3;        // Submarine size
+    private final int pSize = 2;        // Patrol Boat size
+    private Ship[]    ships;            // 5 ships
+
+    private int     hitRow, hitCol;     // the [row, column] of the hit
+    private int     totalSunk;          // the number of sunk ships
+    private int     totalShots;         // the number of total shots
+    private int     totalHits;          // the number of total hits
+    private int lastHitRow;             // for better AI guess
+    private int lastHitCol;             // for better AI guess
+
+    private static ImageIcon[] shipImages;// image icons for the five types of ships
+    private static ImageIcon shipA;     // Ship A image icon
+    private static ImageIcon shipB;     // Ship B image icon
+    private static ImageIcon shipD;     // Ship D image icon
+    private static ImageIcon shipS;     // Ship S image icon
+    private static ImageIcon shipP;     // Ship P image icon
+    private static ImageIcon blank;     // blank image icon
+
+    // constructor
+    public Board(String name) {
+        final String[] rowHead = {" ","0","1","2","3","4","5","6","7","8","9"};
+        final String[] colHead = {" ","A","B","C","D","E","F","G","H","I","J"};
+
+        // create 11*11 grid as a board
+        playerName = name;
+        panelBoard = new JPanel(new GridLayout(11, 11));
+        panelBoard.setBackground(Color.BLACK);
+        panelBoard.setPreferredSize(new Dimension(300, 300));
+        buttonGrid = new JButton[10][10];
+        buttonStatus = new char[10][10];
+        shipTypes = new char[10][10];
+        isReady = false;
+        for (int row = 0; row < 11; row++) {
+            for (int col = 0; col < 11; col++) {
+                // first row or column: header texts
+                // other row or column: buttons for actions
+                if (row == 0 || col == 0) {
+                    JTextField text;
+                    if (row == 0) {
+                        text = new JTextField(rowHead[col]);
+                    } else {
+                        text = new JTextField(colHead[row]);
+                    }
+                    text.setEditable(false);
+                    text.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+                    text.setForeground(Color.WHITE);
+                    text.setBackground(Color.BLACK);
+                    text.setHorizontalAlignment(JTextField.CENTER);
+                    panelBoard.add(text);
+                } else {
+                    buttonStatus[row-1][col-1] = 'U';
+                    shipTypes[row-1][col-1] = ' ';
+                    buttonGrid[row-1][col-1] = new JButton();
+                    //buttonGrid[row-1][col-1].setEnabled(false);
+                    BoardListener bdListener = new BoardListener();
+                    buttonGrid[row-1][col-1].addActionListener(bdListener);
+                    buttonGrid[row-1][col-1].setBackground(Color.BLACK);
+                    buttonGrid[row-1][col-1].setOpaque(true);
+                    panelBoard.add(buttonGrid[row-1][col-1]);
+                }
+            }
+        }
+
+        // disable event listener
+        BoardListener.setActive(false);
+
+        // create ships
+        ships = new Ship[5];
+        totalSunk = 0;
+        totalShots = 0;
+        totalHits = 0;
+
+        shipA = new ImageIcon("a.png");
+        shipB = new ImageIcon("blue.png");
+        shipD = new ImageIcon("d.png");
+        shipS = new ImageIcon("s.png");
+        shipP = new ImageIcon("purple.png");
+        blank = new ImageIcon(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB));
+        shipImages = new ImageIcon[] {shipA, shipB, shipD, shipS, shipP, blank};
+    }
+
+    // getters
+    public String getPlayerName() { return playerName; }
+    public JPanel getPanelBoard() { return panelBoard; }
+    public JButton[][] getButtonGrid() { return buttonGrid; }
+    public boolean getIsReady() { return isReady; }
+    public int getTotalShots() { return totalShots; }
+    public int getTotalHits() { return totalHits; }
+
+    // setters
+    public void setButtonStatus(int x, int y, char c) { buttonStatus[x][y] = c; }
+
+    public void buttonGridSetEnabled(boolean b) {
+        for (int row = 0; row < 10; row++) {
+            for (int col = 0; col < 10; col++) {
+                buttonGrid[row][col].setEnabled(b);
+            }
+        }
+    }
+
+    // find the index of the ship from given shipType
+    public int findShipIndex(char type) {
+        int index = -1;
+        for(int i = 0; i < 5; i++) {
+            if (ships[i].getType() == type) {
+                index = i;
+                break;
+            }
+        }
+        return index;
+    }
+
+    // display the shipTypes on the board:
+    // hide the shipTypes if show == false;
+    // display the ship if ship is sunk regardless of show flag.
+    public void displayShipTypes (boolean show){
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                // find if the ship is sunk
+                int index = findShipIndex(shipTypes[i][j]);
+                boolean shipIsSunk = (index == -1) ? false : ships[index].isSunk();
+
+                //  update the board
+//                String str = (show || shipIsSunk) ? Character.toString(shipTypes[i][j]) : "";
+//                buttonGrid[i][j].setText(str);
+                if (show || shipIsSunk) {
+                    buttonGrid[i][j].setIcon(charToImage(shipTypes[i][j]));
+                } else {
+                    buttonGrid[i][j].setIcon(null);
+//                    buttonGrid[i][j].setText("");
+//                    buttonGrid[i][j].setFont(new Font("Times New Roman", Font.PLAIN, 20));
+//                    buttonGrid[i][j].setMargin(new Insets(5, 0, 5, 0));
+                }
+            }
+        }
+    }
+
+    public void displaySingle(int row, int col) {
+        buttonGrid[row][col].setIcon(charToImage(shipTypes[row][col]));
+    }
+
+    // listener for the board
+    private class BoardListener implements ActionListener {
+        private static boolean active = true;
+        public static void setActive(boolean status) {
+            BoardListener.active = status;
+        }
+        public void actionPerformed(ActionEvent ae) {
+            // process the hit action
+            processShoot(ae.getSource());
+
+            // disable oppBoard button grid
+            Game.getPlayer(Game.getTurn()).getOppBoard().buttonGridSetEnabled(false);
+
+            if (Game.getWinnerID() != -1) {
+                // game over
+                return;
+            }
+
+            if(Game.getPlayer(1).getIsComputer()) {
+                // play with computer
+                Game.getPlayer(0).getMyBoard().computerShoot();
+
+                if (Game.getWinnerID() != -1) {
+                    // computer wins
+                    Game.getPlayer(1).getMyBoard().buttonGridSetEnabled(false);
+                    return;
+                }
+                // enable oppBoard button grid for new fire
+                Game.getPlayer(1).getMyBoard().buttonGridSetEnabled(true);
+
+                Game.getResultButton().setEnabled(true);
+            }
+        }
+    }
+
+    // ai extra credit feature
+    private void computerShoot() {
+        //ai
+        boolean found = false;
+        int row = -1;
+        int col = -1;
+        while (!found) {
+            if (lastHitRow != -1 && lastHitCol != -1) {
+                // try four postions next to [lastHitRol, lastHitCol]
+                row = lastHitRow;
+                col = lastHitCol + 1;
+                if (col <= 9 && buttonStatus[row][col] == 'U') {
+                    found = true;
+                    continue;
+                }
+                row = lastHitRow;
+                col = lastHitCol - 1;
+                if (col >= 0 && buttonStatus[row][col] == 'U') {
+                    found = true;
+                    continue;
+                }
+                row = lastHitRow + 1;
+                col = lastHitCol;
+                if (row <= 9 && buttonStatus[row][col] == 'U') {
+                    found = true;
+                    continue;
+                }
+                row = lastHitRow - 1;
+                col = lastHitCol;
+                if (row >= 0 && buttonStatus[row][col] == 'U') {
+                    found = true;
+                    continue;
+                }
+            }
+            if (!found) {
+                row = (int) (Math.random() * 10);
+                col = (int) (Math.random() * 10);
+                if (buttonStatus[row][col] == 'U') {
+                    found = true;
+                }
+            }
+        }
+
+        // process the shot
+        String sunkShipName = "";
+        totalShots++;
+        if (shipTypes[row][col] == ' ') {
+            // this is a miss
+            buttonStatus[row][col] = 'M';
+            buttonGrid[row][col].setBackground(Color.BLUE);
+            buttonGrid[row][col].setOpaque(true);
+        } else {
+            // this is a hit
+            totalHits++;
+            buttonStatus[row][col] = 'H';
+            displaySingle(row, col);
+            buttonGrid[row][col].setBackground(Color.RED);
+            buttonGrid[row][col].setOpaque(true);
+            lastHitRow = row;
+            lastHitCol = col;
+            for (Ship s : ships) {
+                if (s.onTarget(row, col)) {
+                    s.incHits();
+                    if (s.isSunk()) {
+                        totalSunk++;
+                        sunkShipName = s.getTypename();
+                        lastHitRow = -1;    // clear AI memory
+                        lastHitCol = -1;    // clear AI memory
+                    }
+                    break;
+                }
+            }
+        }
+
+        // display proper information message
+        if (sunkShipName.equals("")==false) {
+            // refresh the human board to show the new sunk ship
+            Game.getPlayer(1).getMyBoard().displayShipTypes(false);
+            if (totalSunk == 5) {
+                // computer won!
+                Game.getPlayer(1).getMyBoard().buttonGridSetEnabled(false);
+                Game.setWinnerID(1);
+                Game.getInfoField().setText(" Computer won! See the statistics result.");
+                Game.getInfoField().setForeground(Color.RED);
+                Game.getInfoField().setOpaque(false);
+            }
+        }
+    }
+
+    // process the shot
+    private void processShoot(Object button) {
+        // find the shoot [row,col]
+        boolean found = false;
+        int row = -1;
+        int col = -1;
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                if (button == buttonGrid[i][j]) {
+                    row = i;
+                    col = j;
+                    found = true;
+                    break; //this is supposed to break out of inner loop
+                }
+            }
+            if (found) {
+                break; //this is supposed to break out of outer loop
+            }
+        }
+        if (!found) {
+            return;
+        }
+
+        // process the shot
+        String sunkShipName = "";
+        if (buttonStatus[row][col] != 'U') {
+            // process repeated shoot
+            if (Game.getPlayer(1).getIsComputer()) {
+                Game.getInfoField().setText("This place is already shot. You waste one turn!");
+            } else {
+                Game.getInfoField().setText("This place is already shot. Click NextTurn to switch player!");
+            }
+            Game.getInfoField().setForeground(Color.RED);
+            Game.getInfoField().setOpaque(false);
+        } else {
+            // process a miss or hit
+            totalShots++;
+            if (shipTypes[row][col] == ' ') {
+                // this is a miss
+                buttonStatus[row][col] = 'M';
+                buttonGrid[row][col].setBackground(Color.BLUE);
+                buttonGrid[row][col].setOpaque(true);
+            } else {
+                // this is a hit
+                totalHits++;
+                buttonStatus[row][col] = 'H';
+                displaySingle(row, col);
+                buttonGrid[row][col].setBackground(Color.RED);
+                buttonGrid[row][col].setOpaque(true);
+                for (Ship s : ships) {
+                    if (s.onTarget(row, col)) {
+                        s.incHits();
+                        if (s.isSunk()) {
+                            totalSunk++;
+                            sunkShipName = s.getTypename();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // display proper information message
+            if (sunkShipName.equals("")) {
+                // no new ship sunk yet: use normal messages
+                if (Game.getPlayer(1).getIsComputer()) {
+                    Game.getInfoField().setText("Valid shot.");
+                } else {
+                    Game.getInfoField().setText("Valid shot. Click NextTurn to switch player!");
+                }
+                Game.getInfoField().setForeground(Color.GREEN);
+                Game.getInfoField().setOpaque(false);
+            } else {
+                // refresh the board to show the new sunk ship
+                Game.getPlayer(Game.getTurn()).getOppBoard().displayShipTypes(false);
+                if (totalSunk == 5) {
+                    // declare winner
+                    Game.setWinnerID(Game.getTurn());
+                    Game.getInfoField().setText("Great! You sunk opponent's " + sunkShipName + ".\n" +
+                            Game.getPlayer(Game.getTurn()).getName() +
+                            " won this game! See the statistics result.");
+                } else {
+                    if (Game.getPlayer(1).getIsComputer()) {
+                        Game.getInfoField().setText("Great! You sunk opponent's " + sunkShipName + ".");
+                    } else {
+                        Game.getInfoField().setText("Great! You sunk opponent's " + sunkShipName +
+                                ". Click NextTurn to switch player!");
+                    }
+                }
+                Game.getInfoField().setForeground(Color.RED);
+                Game.getInfoField().setOpaque(false);
+            }
+        }
+    }
+
+    // find which button is hit and set hitRow and hitCol
+    private void findHitButton(Object button) {
+        boolean found = false;
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                if (button == buttonGrid[i][j]) {
+                    hitRow = i;
+                    hitCol = j;
+                    found = true;
+                    break;
+                }
+                if (found) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void processHit(int row, int col) {
+        if (buttonGrid[row][col].getBackground() == Color.WHITE) {
+            if (buttonStatus[row][col] != 'U') {
+                Game.getInfoField().setText("This place is already shot");
+            }
+            if (buttonStatus[row][col] == 'U') {
+                if (shipTypes[row][col] == ' ') {
+                    // this is a miss
+                    buttonStatus[row][col] = 'M';
+                    buttonGrid[row][col].setBackground(Color.BLUE);
+                    buttonGrid[row][col].setOpaque(true);
+
+                } else {
+                    // this is a hit
+                    buttonStatus[row][col] = 'H';
+                    buttonGrid[row][col].setBackground(Color.RED);
+                    buttonGrid[row][col].setOpaque(true);
+                }
+            }
+        } else if (buttonGrid[row][col].getBackground() == Color.RED) {
+            buttonGrid[row][col].setText(""); // JUST TRY: hide the ship
+        }
+    }
+
+    // manually place ships on the board
+    public boolean manualPlaceShips() {
+        placeshipFrame = new JFrame("Place Ships");
+        placeshipFrame.setSize(2000, 900);
+        placeshipFrame.getContentPane().setBackground(Color.black);
+        placeshipFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        placeshipFrame.getContentPane().setLayout(new BorderLayout());
+
+        // create labels
+        JLabel nameLabel = new JLabel(getPlayerName(), JLabel.CENTER);
+        nameLabel.setFont(new Font("Times New Roman", Font.BOLD, 50));
+        nameLabel.setForeground(Color.WHITE);
+
+        JLabel spacerLabel = new JLabel("", JLabel.CENTER);
+        spacerLabel.setPreferredSize(new Dimension(50, 50));
+
+        // create a top box for labels
+        Box topBox = Box.createHorizontalBox();
+        topBox.setBorder(BorderFactory.createEmptyBorder(50, 100, 60, 100));
+        topBox.add(spacerLabel);
+        topBox.add(Box.createGlue());
+        topBox.add(nameLabel);
+        topBox.add(Box.createGlue());
+        topBox.add(spacerLabel);
+
+        // create text area to describe instructions
+        JTextArea instructionText = new JTextArea(
+                "Place your five ships in the format: type rowColOrientation type rowColOrientation ...\n " +
+                        "Please avoid clicking on any of the buttons on this grid.",15, 10);
+        instructionText.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        instructionText.setForeground(Color.WHITE);
+        instructionText.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        instructionText.setSize(120, 100);
+        instructionText.setLineWrap(true);
+        instructionText.setWrapStyleWord(true);
+        instructionText.setEditable(false);
+        instructionText.setOpaque(false);
+
+        // create left box for instructions
+        Box leftBox = Box.createHorizontalBox();
+        leftBox.setBorder(BorderFactory.createEmptyBorder(0, 200, 0, 50));
+        leftBox.add(instructionText);
+
+        // create table to show inventory information
+//        DefaultTableCellRenderer dtcr = new DefaultTableCellRenderer();
+//        dtcr.setHorizontalAlignment(SwingConstants.CENTER);
+//        String[] headers = {"TYPE", "SIZE", "INVENTORY"};
+//        Object[][] data = {{"Aircraft Carrier (A)", 5, 1},
+//                {"Battleship (B)", 5, 1},
+//                {"Destroyer (D)", 3, 1},
+//                {"Submarine (S)", 3, 1},
+//                {"Patrol Boat (P)", 2, 1}};
+//        JTable inventoryTable = new JTable(data, headers);
+//        inventoryTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+//        inventoryTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+//        inventoryTable.getColumnModel().getColumn(1).setPreferredWidth(20);
+//        inventoryTable.getColumnModel().getColumn(2).setPreferredWidth(20);
+//        inventoryTable.getColumnModel().getColumn(1).setCellRenderer(dtcr);
+//        inventoryTable.getColumnModel().getColumn(2).setCellRenderer(dtcr);
+//        inventoryTable.setPreferredScrollableViewportSize(inventoryTable.getPreferredSize());
+//        JScrollPane scrollPane = new JScrollPane(inventoryTable);
+
+        /*
+        ImageIcon aircraftIcon = new ImageIcon("aircraft.jpg");
+        JLabel aircraftLabel = new JLabel("aircraft", aircraftIcon, JLabel.LEFT);
+        */
+
+        // create a box for the board
+        Box centerBox = Box.createVerticalBox();
+        centerBox.setBorder(BorderFactory.createEmptyBorder(0, 200, 0, 200));
+        centerBox.add(panelBoard);
+
+        // create text field to input instructions
+        PlaceListener placeListener = new PlaceListener();
+        inputText = new JTextField(30);
+        inputText.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        inputText.addActionListener(placeListener);
+
+        //Create PLACE button
+        JButton placeButton = new JButton("PLACE");
+        placeButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        placeButton.setMargin(new Insets(5, 0, 5, 0));
+        placeButton.addActionListener(placeListener);
+
+        //Create RANDOMIZE button
+        JButton randomButton = new JButton("RANDOMIZE");
+        randomButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        randomButton.setMargin(new Insets(5, 0, 5, 0));
+        randomButton.addActionListener(placeListener);
+
+        //Create NEXT button
+        JButton nextButton = new JButton("NEXT");
+        nextButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        nextButton.setMargin(new Insets(5, 0, 5, 0));
+        nextButton.addActionListener(placeListener);
+
+        // create a box for inputText, PLACE, RANDOMIZE and NEXT buttons
+        Box botBox = Box.createHorizontalBox();
+        botBox.setBorder(BorderFactory.createEmptyBorder(60, 100, 50, 100));
+        botBox.add(inputText);
+        botBox.add(placeButton);
+        botBox.add(Box.createRigidArea(new Dimension(150, 0)));
+        botBox.add(randomButton);
+        botBox.add(Box.createRigidArea(new Dimension(150, 0)));
+        botBox.add(Box.createGlue());
+        botBox.add(nextButton);
+
+        // add to panel
+        Container panel = placeshipFrame.getContentPane();
+        panel.add(topBox, BorderLayout.PAGE_START);
+        panel.add(centerBox, BorderLayout.CENTER);
+        panel.add(leftBox, BorderLayout.LINE_START);
+        panel.add(botBox, BorderLayout.PAGE_END);
+
+        //display the frame
+        placeshipFrame.setVisible(true);
+
+        return true;
+    }
+
+    // listener for placeship frame
+    private class PlaceListener implements ActionListener {
+        public void actionPerformed(ActionEvent ae) {
+            String cmd = ae.getActionCommand();
+            // if user enters ship placement
+            if (cmd.equals("PLACE")) {
+                for (int l = 0; l < shipTypes.length; l++) { // clear grid
+                    for (int k = 0; k < shipTypes[0].length; k++) {
+                        shipTypes[l][k] = ' ';
+                    }
+                }
+                String shipInfo = inputText.getText().trim();
+                System.out.println(shipInfo);
+                processShipInfo(shipInfo);
+            // if user clicks randomize function
+            } else if (cmd.equals("RANDOMIZE")) {
+                for (int l = 0; l < shipTypes.length; l++) { // clear grid
+                    for (int k = 0; k < shipTypes[0].length; k++) {
+                        shipTypes[l][k] = ' ';
+                    }
+                }
+                autoPlaceShips(true);
+            // if user wants to move on (should only work when the ships have been placed, either randomly or manually)
+            } else if (cmd.equals("NEXT")) {
+                placeshipFrame.dispose();
+                if (Game.getPlayer(0).getMyBoard().getIsReady() &&
+                        Game.getPlayer(1).getMyBoard().getIsReady()) {
+                    // play the game only when both player boards are ready
+                    BoardListener.setActive(true);
+                    Game.playGame();
+                }
+            }
+        }
+    }
+
+    // converts int to char based on our program
+    private int getInt(char n) {
+        switch(n) {
+            case 'A': return 0;
+            case 'B': return 1;
+            case 'C': return 2;
+            case 'D': return 3;
+            case 'E': return 4;
+            case 'F': return 5;
+            case 'G': return 6;
+            case 'H': return 7;
+            case 'I': return 8;
+            case 'J': return 9;
+            default : return -1;
+        }
+    }
+
+    // converts char to int based on our program
+    private char getChar(int n) {
+        switch(n) {
+            case 0: return 'A';
+            case 1: return 'B';
+            case 2: return 'C';
+            case 3: return 'D';
+            case 4: return 'E';
+            case 5: return 'F';
+            case 6: return 'G';
+            case 7: return 'H';
+            case 8: return 'I';
+            case 9: return 'J';
+            default : return 'X';
+        }
+    }
+
+    // converts int to boolean based on our program
+    private boolean getBoolean(int n) {
+        switch(n) {
+            case 1: return false; // 1 = vertical
+            default : return true; // 0 = horizontal
+        }
+    }
+
+    // converts char to images based on our program
+    private ImageIcon charToImage(char n) {
+        switch(n) {
+            case 'A': return shipImages[0];
+            case 'B': return shipImages[1];
+            case 'D': return shipImages[2];
+            case 'S': return shipImages[3];
+            case 'P': return shipImages[4];
+            default : return shipImages[5];
+        }
+    }
+
+    // parses user input for placement of ships --> creates specific ships and places them on the grid
+    private boolean processShipInfo(String shipInfo) {
+
+        //Format: type rowColOrientation ... Ex: A B0h B E0h D G3v S H5v P F8v
+        //●	Check for ship types
+        //●	Check if the player enters the ship that was already in playing board
+        //●	Check if the cell exists
+        //●	Check if the ship is beyond the board
+        //●	Check if the ship is overlapped the other
+        //●	If there is an error from user input
+        // If there is an error from user input, print specific error message, and prompt user to re-enter until obtaining good input.
+
+        boolean valid = true;
+        char[] type = new char[5];
+        char[] row = new char[5];
+        char[] col = new char[5];
+        char[] ort = new char[5]; // h: horizontal, v: vertical
+
+        // check if anything is wrong upon user entering
+        String errorMessage = "";
+
+        // check 1: length
+        if (shipInfo.length() != 29) {
+            valid = false;
+            errorMessage = "the length. It must be exactly 29 characters";
+            //System.out.println("Bad entry with length of " + shipInfo.length());
+        }
+        if (valid == true) {
+            // check 2: ship type
+            if (shipInfo.charAt(0) != 'A' || shipInfo.charAt(6) != 'B' || shipInfo.charAt(12) != 'D' || shipInfo.charAt(18) != 'S' || shipInfo.charAt(24) != 'P') {
+                valid = false;
+                errorMessage = "the ship types. Make sure they are in the order: A, B, D, S, P";
+                //System.out.println("Bad entry with ship type " + shipInfo.charAt(0) + " " +
+                       // shipInfo.charAt(6) + " " +
+                       // shipInfo.charAt(12) + " " +
+                       // shipInfo.charAt(18) + " " +
+                       // shipInfo.charAt(24));
+            }
+            for (int x = 0; x < 5; x++) {
+                // check 3: rows
+                if (((shipInfo.charAt((6 * x) + 2)) < 65) || ((shipInfo.charAt((6 * x) + 2)) > 74)) {
+                    valid = false;
+                    errorMessage = "the ship rows. They should be [A, J]";
+                    //System.out.println("bad entry at " + (shipInfo.charAt(6 * x) + 2));
+                }
+                // check 4: columns
+                if ((shipInfo.charAt((6 * x) + 3) < 0) && (shipInfo.charAt((6 * x) + 3) > 9)) {
+                    valid = false;
+                    errorMessage = "the ship columns. They should be [0, 9]";
+                    //System.out.println("bad entry at " + shipInfo.charAt((6 * x) + 3));
+                }
+                // check 5: orientation
+                if (Character.valueOf('h').compareTo(Character.valueOf(shipInfo.charAt((6 * x) + 4))) != 0 && Character.valueOf('v').compareTo(Character.valueOf(shipInfo.charAt((6 * x) + 4))) != 0) {
+                    valid = false;
+                    errorMessage = "the ship orientations. They should either be 'v' for vertical or 'h' for horizontal";
+                    //System.out.println("bad entry at " + Character.valueOf('h').compareTo(Character.valueOf(shipInfo.charAt((6 * x) + 4))));
+                }
+            }
+        }
+
+        // parse shipInfo string (only if there aren't any errors so far)
+        if (valid == true) {
+            for (int i = 0; i < 5; i++) {
+                type[i] = shipInfo.charAt(6 * i);
+                row[i] = shipInfo.charAt((6 * i) + 2);
+                col[i] = shipInfo.charAt((6 * i) + 3);
+                ort[i] = shipInfo.charAt((6 * i) + 4);
+
+                // what these arrays look like
+                /* String[] type = {A      B      D      S      P}
+                 * String[] row =  {rowA   rowB   rowD   rowS   rowP}
+                 * String[] col =  {colA   colB   colD   colS   colP}
+                 * String[] ort =  {h/vA   h/vB   h/vD   h/vS   h/vP}
+                 */
+            }
+
+            // create five ships with position information gained from parsing
+            ships[0] = new Ship(type[0], ort[0] == 'h', aSize, getInt(row[0]) + 0, Character.getNumericValue(col[0]) + 0,
+                    getInt(row[0]) + ((ort[0] == 'h') ? 0 : aSize - 1) + 0, Character.getNumericValue(col[0]) + ((ort[0] == 'h') ? aSize - 1: 0) + 0);
+            ships[1] = new Ship(type[1], ort[1] == 'h', bSize, getInt(row[1]) + 0, Character.getNumericValue(col[1]) + 0,
+                    getInt(row[1]) + ((ort[1] == 'h') ? 0 : bSize - 1) + 0, Character.getNumericValue(col[1]) + ((ort[1] == 'h') ? bSize - 1: 0) + 0);
+            ships[2] = new Ship(type[2], ort[2] == 'h', dSize, getInt(row[2]) + 0, Character.getNumericValue(col[2]) + 0,
+                    getInt(row[2]) + ((ort[2] == 'h') ? 0 : dSize - 1) + 0, Character.getNumericValue(col[2]) + ((ort[2] == 'h') ? dSize - 1: 0) + 0);
+            ships[3] = new Ship(type[3], ort[3] == 'h', sSize, getInt(row[3]) + 0, Character.getNumericValue(col[3]) + 0,
+                    getInt(row[3]) + ((ort[3] == 'h') ? 0 : sSize - 1) + 0, Character.getNumericValue(col[3]) + ((ort[3] == 'h') ? sSize - 1: 0) + 0);
+            ships[4] = new Ship(type[4], ort[4] == 'h', pSize, getInt(row[4]) + 0, Character.getNumericValue(col[4]) + 0,
+                    getInt(row[4]) + ((ort[4] == 'h') ? 0 : pSize - 1) + 0, Character.getNumericValue(col[4]) + ((ort[4] == 'h') ? pSize - 1: 0) + 0);
+
+            // place the ships on the grid and check if any ships go beyond the grid
+            char[] shipLetters = new char[] {'A', 'B', 'D', 'S', 'P'};
+            int[] shipSizes = new int[] {aSize, bSize, dSize, sSize, pSize};
+            boolean[][] isOverlapping = new boolean[10][10]; // initialized to false, if false: no overlap, if true: is overlap
+
+            for (int i = 0; i < 5; i++) {
+                if (ort[i] == 'h') { // for ships that are horizontally oriented
+                    // check 6: in grid range (horizontally)
+                    if ((Character.getNumericValue(col[i]) + shipSizes[i] - 1) < shipTypes[0].length) {
+                        for (int a = Character.getNumericValue(col[i]); a < Character.getNumericValue(col[i]) + shipSizes[i]; a++) {
+                            // check 7: overlapping (with horizontal ships)
+                            if (isOverlapping[getInt(row[i])][a] == false) {
+                                isOverlapping[getInt(row[i])][a] = true;
+                                shipTypes[getInt(row[i])][a] = shipLetters[i];
+                            // if overlapping exists --> error
+                            } else {
+                                valid = false;
+                                errorMessage = "the overlapping at (r,c) = (" + row[i] + "," + a + ")"; // tells user the last overlapping site
+                                //System.out.println("Bad entry with overlapping");
+                            }
+                        }
+                    } else {
+                        valid = false;
+                        errorMessage = "the ship not fitting within the grid constraints";
+                        //System.out.println("Bad entry with horz index of " + (Character.getNumericValue(col[i]) + shipSizes[i] - 1));
+                    }
+                } else { // for ships that are vertically oriented
+                    // check 8: in grid range (vertically)
+                    if ((getInt(row[i]) + shipSizes[i] - 1) < shipTypes.length) {
+                        for (int a = getInt(row[i]); a < getInt(row[i]) + shipSizes[i]; a++) {
+                            //System.out.println("v is " + getInt(row[i]) + " " + a);
+                            // check 9: overlapping (with vertical ships)
+                            if (isOverlapping[a][Character.getNumericValue(col[i])] == false) {
+                                isOverlapping[a][Character.getNumericValue(col[i])] = true;
+                                shipTypes[a][Character.getNumericValue(col[i])] = shipLetters[i];
+                            // if overlapping exists --> error
+                            } else {
+                                valid = false;
+                                errorMessage = "the overlapping at (r,c) = (" + getChar(a) + "," + Character.getNumericValue(col[i]) + ")"; // tells user the last overlapping site
+                                //System.out.println("Bad entry with overlapping " + getChar(a));
+                            }
+                        }
+                    } else {
+                        valid = false;
+                        errorMessage = "the ship not fitting within the grid constraints";
+                        //System.out.println("Bad entry with vert index of " + (getInt(row[i]) + shipSizes[i] - 1));
+                    }
+                }
+            }
+        }
+
+        // flag that triggers the error message pop-up display (specific to the problem with user's input)
+        if (valid == false) {
+            // show specific error message
+            JOptionPane.showMessageDialog(null,
+                    "There is a problem with " + errorMessage + ". Please reenter the ship placement.",
+                    "Invalid Input", JOptionPane.INFORMATION_MESSAGE);
+            return false;
+        }
+
+        // display the ships on the board
+        isReady = true;
+        displayShipTypes(true);
+
+        return valid;
+    }
+
+    // automatically place ships on the board
+    public void autoPlaceShips(boolean show) {
+
+        // variables for randomly-generated orientation, row, and column
+        char ortRandom;
+        int rowRandom;
+        int colRandom;
+
+        char[] shipLetters = new char[]{'A', 'B', 'D', 'S', 'P'};
+        int[] shipSizes = new int[]{aSize, bSize, dSize, sSize, pSize};
+        boolean[][] isOverlapping = new boolean[10][10]; // initialized to false, if false: no overlap, if true: is overlap
+
+        // generate five ships
+        for (int y = 0; y < 5; y++) {
+
+            boolean valid = false;
+
+            // while the requirements aren't satisfied, repeat the process of generating a ship and placing it on the grid
+            while (valid != true) {
+
+                rowRandom = (int) (Math.random() * 10); // should be [A, J]
+                colRandom = (int) (Math.random() * 10); // should be [0, 9]
+                ortRandom = ((int) (Math.random() * 2) > 0) ? 'h' : 'v';
+
+                valid = true;
+
+                if (ortRandom == 'h') { // for ships that are horizontally oriented
+                    // check 6: in grid range (horizontally)
+                    if ((colRandom + shipSizes[y] - 1) < shipTypes[y].length) {
+                        for (int a = colRandom; a < colRandom + shipSizes[y]; a++) {
+                            // check 7: overlapping (with horizontal ships)
+                            if (isOverlapping[rowRandom][a] == false) {
+                                // if overlapping exists --> error
+                            } else {
+                                valid = false;
+                                //System.out.println("Bad entry with overlapping at (r,c) = (\" + rowRandom + \",\" + a + \")\"");
+                            }
+                        }
+                    } else {
+                        valid = false;
+                        //System.out.println("Bad entry with horz index of " + (Character.getNumericValue(colRandom) + shipSizes[y] - 1));
+                    }
+                } else { // for ships that are vertically oriented
+                    // check 8: in grid range (vertically)
+                    if ((rowRandom + shipSizes[y] - 1) < shipTypes.length) {
+                        for (int a = rowRandom; a < rowRandom + shipSizes[y]; a++) {
+                            // check 9: overlapping (with vertical ships)
+                            if (isOverlapping[a][colRandom] == false) {
+                                // if overlapping exists --> error
+                            } else {
+                                valid = false;
+                                //System.out.println("Bad entry with overlapping at (r,c) = (\" + getChar(a) + \",\" + Character.getNumericValue(colRandom) + \")\"");
+                            }
+                        }
+                    } else {
+                        valid = false;
+                        //System.out.println("Bad entry with vert index of " + (rowRandom + shipSizes[y] - 1));
+                    }
+                }
+                if (valid == true) {
+                    if (ortRandom == 'h') {
+                        for (int a = colRandom; a < colRandom + shipSizes[y]; a++) {
+                            //System.out.println("placing h is " + rowRandom + " " + a);
+                            isOverlapping[rowRandom][a] = true;
+                            shipTypes[rowRandom][a] = shipLetters[y];
+                        }
+                    } else {
+                        for (int a = rowRandom; a < rowRandom + shipSizes[y]; a++) {
+                            //System.out.println("placing v is " + a + " " + colRandom);
+                            isOverlapping[a][colRandom] = true;
+                            shipTypes[a][colRandom] = shipLetters[y];
+                        }
+                    }
+                    // if the newly generated ship passes all the requirements, create it
+                    ships[y] = new Ship(shipLetters[y], ortRandom == 'h', shipSizes[y], rowRandom, colRandom, rowRandom + ((ortRandom == 'h') ? 0 : shipSizes[y] - 1), colRandom + ((ortRandom == 'h') ? shipSizes[y] - 1 : 0));
+                }
+            }
+        }
+
+        // display the ships on the board if show == true
+        isReady = true;
+        displayShipTypes(show);
+    }
+
+    // reset the board
+    public void reset() {
+
+    }
+}

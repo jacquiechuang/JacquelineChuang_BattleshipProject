@@ -1,0 +1,46 @@
+/**
+ * @author Charles Huang
+ * @author Jacqueline Chuang
+ *
+ * Project: Battlesship Game
+ * Teacher: Ms. Hemiup
+ * Spring 2022
+ */
+
+/**
+ * Player class contains player information and two boards, myBoard and enemyBoard.
+ * It is primarily used for getting and setting info
+ */
+
+public class Player {
+    private String 	name;  	        // player name
+    private boolean isComputer;     // player is computer
+    private Board   myBoard;        // my board
+    private Board   oppBoard;       // opponent's board
+
+    // constructor
+    public Player(String name, boolean isComputer) {
+        this.name = name;
+        this.isComputer = isComputer;
+        this.myBoard = new Board(name);
+    }
+
+    // getters
+    public String getName() { return name; }
+    public boolean getIsComputer() { return isComputer; }
+    public Board getMyBoard() { return myBoard; }
+    public Board getOppBoard() { return oppBoard; }
+
+    // setters
+    public void setOppBoard(Board oppBoard) { this.oppBoard = oppBoard; }
+
+
+    // set my board with ships
+    public void SetMyboard() {
+        if (isComputer) {
+            myBoard.autoPlaceShips(false);
+        } else {
+            myBoard.manualPlaceShips();
+        }
+    }
+}

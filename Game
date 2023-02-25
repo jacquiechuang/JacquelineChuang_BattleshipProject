@@ -1,0 +1,688 @@
+/**
+ * @author Charles Huang
+ * @author Jacqueline Chuang
+ *
+ * Project: Battleship Game
+ * Teacher: Ms. Hemiup
+ * Spring 2022
+ */
+
+import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.util.ArrayList;
+import jaco.mp3.player.MP3Player;
+
+/**
+ * Game class is the main class for Battleship game.
+ * It sets up the GUI and let players play.
+ * Project extra credit features:
+ * Backstory - a backstory screen pops up prior to actual gameplay options to provide context to playing
+ * Music - we have a music button that plays during the game. The user can click to pause or play the music
+ * login - allows the user to login with their credentials
+ * pictured ships - our ships are displayed with pictures to provide a better user experience
+ * randomize - we have a randomize feature that allows the user to randomize their ship placements
+ * computer mode - the computer mode is a single player mode where the user can play against an AI computer.
+ * this AI computer guesses randomly at first but proceeds to guess around the target area once hit in order to
+ * find and sink the ship
+ * get revenge! button - this button, which appears on the statistics/end screen, allows for a convenient way
+ * of restarting our battleship game. this way, users can return to the start of the game without running the
+ * program another time
+ */
+
+public class Game {
+    private ArrayList<Player>           players;      // used for login settings
+
+    private static Player[]             actives;      // two active players
+    private static int                  turn;         // 0: player[0]; 1: player[1]
+    private static JTextField           infoField;    // information field
+    private static JFrame               screenFrame;  // implemented in storyScreen
+    private static JFrame               story;        // implemented in storyScreen
+    private static JFrame               loginFrame;
+    private static JTextField           userTF;       // implemented in loginScreen
+    private static JPasswordField       passTF;       // implemented in loginScreen
+    private static JButton              loginBtn;     // implemented in loginScreen
+    private static JButton              resetBtn;     // implemented in loginScreen
+    private static JCheckBox            showPass;
+    private static ArrayList<String>    userDatabase; // stores all user usernames
+    private static ArrayList<String>    passDatabase; // stores all user passwords
+    private static JButton              resultButton; // result button enabled after first round
+    private static String               SONG;         // used for music feature
+    private static MP3Player            mp3player;    // used for music feature
+    private static JButton              musicBtn;     // used for music feature
+    private static ImageIcon            mImg;         // used for music feature
+    private static ImageIcon            nmImg;        // used for music feature
+    private static int                  winnerID;
+    private static JButton              humanBtn;     // implemented in beginScreen
+    private static JButton              computerBtn;  // implemented in beginScreen
+    private static JFrame               playFrame;
+    private static JFrame               endFrame;
+
+    // constructor
+    public Game() {
+        players = new ArrayList<Player>();
+        actives = new Player[2];
+        turn = 0;
+        winnerID = -1;
+        infoField = new JTextField();
+        infoField.setHorizontalAlignment(JTextField.CENTER);
+        infoField.setFont(new Font("Courier", Font.PLAIN, 14));
+        infoField.setEditable(false);
+
+        SONG = "City of Gamers - Chill-Gaming-Studying Lofi Hip Hop Mix - (1 hour).mp3";
+        mp3player = new MP3Player(new File(SONG));
+    }
+
+    // getters
+    static public Player getPlayer(int id) { return actives[id]; }
+    static public JTextField getInfoField() { return infoField; }
+    static public int getTurn() {return turn;}
+    static public int getWinnerID() { return winnerID; }
+    static public JButton getResultButton() { return resultButton; }
+
+    // setters
+    static public void setTurn(int t) { turn = t; }
+    static public void setWinnerID(int id) { winnerID = id; }
+
+    // add player
+    public Player addPlayer(String name, boolean isComputer)  {
+        Player newPlayer = new Player(name, isComputer);
+        players.add(newPlayer);
+        return newPlayer;
+    }
+
+    // set two active players
+    public void setActive(Player player0, Player player1) {
+        actives[0] = player0;
+        actives[1] = player1;
+        turn = 0;
+    }
+
+    // start screen, an extra credit feature that provides context for the game
+    private void startScreen() {
+        // make the frame
+        screenFrame = new JFrame("EVERSPACE");
+        screenFrame.setSize(2000, 900);
+        screenFrame.getContentPane().setLayout(new BorderLayout());
+        screenFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        // add image as backgronud
+        ImageIcon img = new ImageIcon("image (1).png");
+        JLabel background = new JLabel("", img, JLabel.CENTER);
+        background.setBounds(0, 0, 1460, 900);
+        screenFrame.add(background);
+
+        // add text story
+        JTextArea area = new JTextArea();
+        //area.setBorder(new CompoundBorder(new LineBorder(Color.WHITE, 3), new EmptyBorder(6, 6, 6, 6)));
+        area.setText("WELCOME TO EVERSPACE\n" + "\n" +
+                "Fellow agents, the world you are about to experience is not merely a game, " +
+                "but a battle so intense that its consequences ripple way beyond the edge of our galaxy, " +
+                "throughout the depths of outer space. Now, make no mistake, " +
+                "you two agents are certainly not friends, nor are you acquaintances. " +
+                "In fact, you are two astronomical commanders locked in a fight of animosity and ambition, " +
+                "vying for dominance over more than the solar system, more than the Milky Way, " +
+                "more than the Virgo supercluster, but the whole universe. " +
+                "Prepare your fleet of warships and ready your mental capacity as you enter into the " +
+                "greatest fight of your lives...");
+        area.setFont(new Font("Times New Roman", Font.PLAIN, 30));
+        area.setForeground(Color.WHITE);
+        area.setBackground(Color.BLACK);
+        area.setEditable(false);
+        area.setBounds(0, 0, 300, 40);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setBorder(BorderFactory.createLineBorder(Color.BLACK, 20));
+
+        // add next button
+        JButton nextBtn = new JButton("NEXT");
+        nextBtn.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        nextBtn.setMargin(new Insets(5, 0, 5, 0));
+        JPanel nextPanel = new JPanel();
+        nextPanel.setLayout(new GridBagLayout());
+        nextPanel.add(nextBtn, new GridBagConstraints());
+
+        // listener for "next" button
+        StartScreenListener sSListener = new StartScreenListener();
+        nextBtn.addActionListener(sSListener);
+
+        // creating a box to put these components in
+        Box box = Box.createVerticalBox();
+        box.setBorder(BorderFactory.createEmptyBorder(150, 200, 100, 200));
+        box.add(area);
+        box.add(Box.createGlue());
+        box.add(nextPanel);
+
+        Container panel = screenFrame.getContentPane();
+        panel.add(box, BorderLayout.CENTER);
+
+        // display the frame
+        screenFrame.setVisible(true);
+    }
+
+    // listener class for the start screen
+    private class StartScreenListener implements ActionListener {
+        public void actionPerformed(ActionEvent sc) {
+            screenFrame.dispose();
+            beginScreen();
+        }
+    }
+
+    // beginScreen frame
+    private void beginScreen() {
+        // make the frame
+        JFrame frame = new JFrame("Battleship Game");
+        frame.setSize(2000, 900);
+        frame.getContentPane().setBackground(Color.black);
+        frame.getContentPane().setLayout(new BorderLayout());
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        // make LOGIN & SETTING buttons
+        mp3player.play();
+        mImg = new ImageIcon("music.jpg");
+        nmImg = new ImageIcon("nomusic.jpg");
+        musicBtn = new JButton(mImg);
+        musicListener mListen = new musicListener();
+        musicBtn.addActionListener(mListen);
+
+        JButton loginBtn = new JButton("LOGIN");
+        loginBtn.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        loginBtn.setMargin(new Insets(5, 0, 5, 0));
+        JLabel spacerLabel = new JLabel("");
+        spacerLabel.setPreferredSize(new Dimension(140, 50));
+
+        // make a label for game mode title
+        JLabel label = new JLabel("GAME MODE    ", JLabel.CENTER);
+        label.setFont(new Font("Times New Roman", Font.BOLD, 50));
+        label.setForeground(Color.WHITE);
+        label.setPreferredSize(new Dimension(500, 100)); //qwe
+
+        // create a box for "login" button, "settings" button, and game mode
+        Box topBox = Box.createHorizontalBox();
+        topBox.setBorder(BorderFactory.createEmptyBorder(20, 100, 20, 100));
+        topBox.add(loginBtn);
+        topBox.add(Box.createGlue());
+        topBox.add(label);
+        topBox.add(Box.createGlue());
+        topBox.add(musicBtn);
+
+        // make computer & human buttons
+        ImageIcon cImg = new ImageIcon("computer1.png");
+        ImageIcon hImg = new ImageIcon("human1.png");
+        computerBtn = new JButton(cImg);
+        humanBtn = new JButton(hImg);
+
+        // add action listener to the buttons
+        BeginScreenListener bsListener = new BeginScreenListener();
+        loginBtn.addActionListener(bsListener);
+        computerBtn.addActionListener(bsListener);
+        humanBtn.addActionListener(bsListener);
+
+        // create a box for "human" and "computer" buttons
+        Box middleBox = Box.createHorizontalBox();
+        middleBox.setBorder(BorderFactory.createEmptyBorder(20, 100, 20, 100));
+        middleBox.add(computerBtn);
+        middleBox.add(Box.createGlue());
+        middleBox.add(humanBtn);
+
+        // make computer and human labels
+        JLabel humanLabel = new JLabel("HUMAN", JLabel.CENTER);
+        humanLabel.setFont(new Font("Times New Roman", Font.BOLD, 30));
+        humanLabel.setForeground(Color.WHITE);
+        humanLabel.setPreferredSize(new Dimension(200, 100)); //qwe
+        JLabel compLabel = new JLabel("COMPUTER", JLabel.CENTER);
+        compLabel.setFont(new Font("Times New Roman", Font.BOLD, 30));
+        compLabel.setForeground(Color.WHITE);
+        compLabel.setPreferredSize(new Dimension(200, 100)); //qwe
+
+        // create a box for "human" and "computer" labels
+        Box labelBox = Box.createHorizontalBox();
+        labelBox.setBorder(BorderFactory.createEmptyBorder(20, 240, 20, 240));
+        labelBox.add(compLabel);
+        labelBox.add(Box.createGlue());
+        labelBox.add(humanLabel);
+
+        //add the components to the panel
+        Container panel = frame.getContentPane();
+        panel.add(topBox, BorderLayout.PAGE_START);
+        panel.add(middleBox, BorderLayout.CENTER);
+        panel.add(labelBox, BorderLayout.PAGE_END);
+
+        //display the frame
+        frame.setVisible(true);
+    }
+
+    // action listener for music button (turns music on and off depending on user's action)
+    static class musicListener implements ActionListener {
+        public void actionPerformed(ActionEvent sc) {
+            if (musicBtn.getIcon()==mImg) {
+                musicBtn.setIcon(nmImg);
+                mp3player.pause();
+            }
+            else {
+                musicBtn.setIcon(mImg);
+                mp3player.play();
+            }
+        }
+    }
+
+    // listener for beginScreen frame
+    private class BeginScreenListener implements ActionListener {
+        public void actionPerformed(ActionEvent ae) {
+            String cmd = ae.getActionCommand();
+
+            if (cmd.equals("LOGIN")) {
+                loginScreen();
+            } else {
+                boolean playWithHuman = (ae.getSource() == humanBtn);
+
+                // input username
+                String user1 = null;
+                String user2 = "computer";  // default
+                System.out.println("action1");
+
+                // while loop for invalid inputs (entering nothing or entering a username over 25 characters)
+                while (user1 == null || user1.equals("")) {
+                    user1 = JOptionPane.showInputDialog(null, "Enter Player 1's Name: ", "", JOptionPane.INFORMATION_MESSAGE);
+                    System.out.println("action2");
+                    if (checkInputLength(user1) == false) {
+                        user1 = null;
+                        System.out.println("action3");
+                        JOptionPane.showMessageDialog(null, "Your username exceeds 25 characters. " +
+                                "Please enter another username.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+                if (playWithHuman) {
+                    // input username
+                    user2 = null;
+
+                    // while loop for invalid inputs (entering nothing or entering a username over 25 characters)
+                    while (user2 == null || user2.equals("")) {
+                        user2 = JOptionPane.showInputDialog(null, "Enter Player 2's Name: ", "", JOptionPane.INFORMATION_MESSAGE);
+                        System.out.println("action4");
+                        if (checkInputLength(user2) == false) {
+                            user2 = null;
+                            System.out.println("action5");
+                            JOptionPane.showMessageDialog(null, "Your username exceeds 25 characters." +
+                                    "Please enter another username.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                } else {
+                    user2 = "computer";
+                }
+
+                // create two players with ships
+                actives[0] = new Player(user1, false);
+                actives[1] = new Player(user2, !playWithHuman);
+                Game.setTurn(0);        // reset for new games
+                Game.setWinnerID(-1);   // reset for new games
+
+                // show info message and start
+                JOptionPane.showMessageDialog(null,
+                        "Let's start the game: " + user1 + " v.s. " + user2,
+                        "", JOptionPane.INFORMATION_MESSAGE);
+
+                // set up the board with ships
+                actives[1].SetMyboard();
+                actives[0].SetMyboard();  // the board setup window 0 will be in front of window 1
+                actives[0].setOppBoard(actives[1].getMyBoard());
+                actives[1].setOppBoard(actives[0].getMyBoard());
+                //data is hacked, randomize and place ship does not work yet
+            }
+        }
+    }
+
+    // boolean method that checks length of user input, implemented in beginScreen frame
+    private boolean checkInputLength(String playerName) {
+        if (playerName.length() <= 25) return true;
+        else return false;
+    }
+
+    // loginScreen frame
+    private void loginScreen() {
+        loginFrame = new JFrame();
+        loginFrame.setTitle("Login Screen");
+        loginFrame.setVisible(true);
+        loginFrame.getContentPane().setBackground(Color.BLACK);
+        loginFrame.setSize(400, 600);
+        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        userDatabase = new ArrayList<>();
+        passDatabase = new ArrayList<>();
+        User user = new User("hellothere", "1234");
+        userDatabase.add(user.getUser());
+        passDatabase.add(user.getPass());
+
+        Container container = loginFrame.getContentPane();
+        container.setSize(1000, 900);
+        container.setLayout(null);
+        JLabel userLabel = new JLabel("USERNAME");
+        userLabel.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        userLabel.setForeground(Color.WHITE);
+        JLabel passLabel = new JLabel("PASSWORD");
+        passLabel.setForeground(Color.WHITE);
+        passLabel.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        userTF = new JTextField();
+        userTF.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        passTF = new JPasswordField();
+        passTF.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        loginBtn = new JButton("LOGIN");
+        loginBtn.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        loginBtn.setMargin(new Insets(5, 5, 5, 5));
+        resetBtn = new JButton("RESET");
+        resetBtn.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        resetBtn.setMargin(new Insets(5, 5, 5, 5));
+        showPass = new JCheckBox("SHOW PASSWORD");
+        showPass.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        showPass.setForeground(Color.WHITE);
+
+        // set bounds of all components
+        userLabel.setBounds(50, 150, 150, 30);
+        passLabel.setBounds(50, 220, 150, 30);
+        userTF.setBounds(200, 150, 150, 30);
+        passTF.setBounds(200, 220, 150, 30);
+        showPass.setBounds(100, 250, 230, 30);
+        loginBtn.setBounds(50, 300, 100, 30);
+        resetBtn.setBounds(200, 300, 100, 30);
+
+        // add components to frame
+        container.add(userLabel);
+        container.add(passLabel);
+        container.add(userTF);
+        container.add(passTF);
+        container.add(showPass);
+        container.add(loginBtn);
+        container.add(resetBtn);
+
+        // add action listeners
+        LoginScreenListener lsListener = new LoginScreenListener();
+        loginBtn.addActionListener(lsListener);
+        resetBtn.addActionListener(lsListener);
+        showPass.addActionListener(lsListener);
+    }
+
+    // listener for loginScreen frame (either create a new account or sign in as an existing user)
+    private static class LoginScreenListener implements ActionListener {
+        public void actionPerformed(ActionEvent ae) {
+            boolean flag = false;
+            String userInput;
+            String passInput;
+
+            // if the login button is pressed
+            if (ae.getSource() == loginBtn) {
+                userInput = userTF.getText();    // get user-entered username from userTF
+                passInput = passTF.getText();    // get user-entered password from userTF
+
+                // loop through the database to check for the username
+                for (int i = 0; i < userDatabase.size(); i++) {
+                    if (userInput.equals(userDatabase.get(i))) { // if it does exist
+                        JOptionPane.showMessageDialog(null, "There is an account with this username.", "Existing User", JOptionPane.INFORMATION_MESSAGE);
+                        if (passInput.equals(passDatabase.get(i))) {
+                            JOptionPane.showMessageDialog(null, "Login successful!", "Login Screen", JOptionPane.INFORMATION_MESSAGE);
+                            flag = true;
+                            loginFrame.dispose();
+                        } else { // if it does exist but the password doesn't match
+                            JOptionPane.showMessageDialog(null, "Invalid username or password.", "Login Screen", JOptionPane.ERROR_MESSAGE);
+                            flag = true;
+                            loginFrame.dispose();
+                        }
+                    }
+                }
+
+                if (flag == false) { // if flag equals false, meaning there is no existing username: create an account
+                    JOptionPane.showMessageDialog(null, "Created a new account!", "Login Screen", JOptionPane.INFORMATION_MESSAGE);
+                    User user = new User(userInput, passInput);
+                    userDatabase.add(userInput);
+                    passDatabase.add(passInput);
+                    loginFrame.dispose();
+                }
+            }
+
+            // reset button
+            if (ae.getSource() == resetBtn) {
+                userTF.setText("");
+                passTF.setText("");
+            }
+
+            // show password check box
+            if (ae.getSource() == showPass) {
+                if (showPass.isSelected()) {
+                    passTF.setEchoChar((char)0);
+                } else {
+                    passTF.setEchoChar('*');
+                }
+            }
+        }
+    }
+
+    // playGame frame
+    public static void playGame() {
+        // make the frame
+        playFrame = new JFrame("Play Game");
+        playFrame.setSize(2000,900);
+        playFrame.getContentPane().setBackground(Color.BLACK);
+        playFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        playFrame.getContentPane().setLayout(new BorderLayout());
+
+        // two boards
+        JPanel myBoard = actives[0].getMyBoard().getPanelBoard();
+        JPanel oppBoard = actives[1].getMyBoard().getPanelBoard();
+
+        // create top box
+        JLabel user1Label = new JLabel(actives[0].getName(), JLabel.CENTER);
+        user1Label.setFont(new Font("Times New Roman", Font.PLAIN, 30));
+        user1Label.setForeground(Color.WHITE);
+        JLabel user2Label = new JLabel(actives[1].getName(), JLabel.CENTER);
+        user2Label.setFont(new Font("Times New Roman", Font.PLAIN, 30));
+        user2Label.setForeground(Color.WHITE);
+        Box topBox = Box.createHorizontalBox();
+        topBox.setBorder(BorderFactory.createEmptyBorder(20, 150, 20, 150));
+        topBox.add(Box.createRigidArea(new Dimension(200, 0)));
+        topBox.add(user1Label);
+        topBox.add(Box.createGlue());
+        topBox.add(user2Label);
+        topBox.add(Box.createRigidArea(new Dimension(200, 0)));
+
+        // create vertical box
+        JButton nextButton = new JButton("NEXT TURN");
+        nextButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        nextButton.setMargin(new Insets(5, 0, 5, 0));
+        nextButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resultButton = new JButton("RESULT");
+        resultButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        resultButton.setMargin(new Insets(5, 0, 5, 0));
+        resultButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        Box vertBox = Box.createVerticalBox();
+        vertBox.setBorder(BorderFactory.createEmptyBorder(20, 20, 0, 20));
+        vertBox.add(nextButton);
+        vertBox.add(Box.createRigidArea(new Dimension(50, 200)));
+        vertBox.add(resultButton);
+
+        // add listener
+        PlayGameListener pgListener = new PlayGameListener();
+        nextButton.addActionListener(pgListener);
+        resultButton.addActionListener(pgListener);
+
+        // create text field to display realtime information
+        infoField.setText("You are ready to fire! Click Next Turn to start. First turn will be " + actives[1].getName());
+        infoField.setForeground(Color.WHITE);
+        infoField.setFont(new Font("Times New Roman", Font.PLAIN, 30));
+        infoField.setBackground(Color.BLACK);
+        infoField.setBorder(BorderFactory.createEmptyBorder(20, 100, 20, 100));
+
+        // create center box containing left, right, and vert boxes
+        Box leftBox = Box.createHorizontalBox();
+        leftBox.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        leftBox.add(myBoard);
+        Box rightBox = Box.createHorizontalBox();
+        rightBox.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        rightBox.add(oppBoard);
+        Box centerBox = Box.createHorizontalBox();
+        centerBox.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
+        centerBox.add(leftBox);
+        centerBox.add(vertBox);
+        centerBox.add(rightBox);
+
+        Container panel = playFrame.getContentPane();
+        panel.add(topBox, BorderLayout.PAGE_START);
+        panel.add(centerBox, BorderLayout.CENTER);
+        panel.add(infoField, BorderLayout.PAGE_END);
+        actives[0].getMyBoard().displayShipTypes(false);
+        actives[1].getMyBoard().displayShipTypes(false);
+
+        //display the frame
+        playFrame.setVisible(true);
+
+        actives[0].getMyBoard().displayShipTypes(false); //other version has true here
+        actives[0].getMyBoard().buttonGridSetEnabled(false);
+
+        // active[1] board: enable buttonGrid and hide ships
+        actives[1].getMyBoard().displayShipTypes(false);
+        actives[1].getMyBoard().buttonGridSetEnabled(true);
+        if (actives[1].getIsComputer()) {
+            // no need for NextTurn when playing with computer
+            nextButton.setEnabled(false);
+        }
+        resultButton.setEnabled(false);
+    }
+
+    // listener for playGame frame
+    private static class PlayGameListener implements ActionListener {
+        public void actionPerformed(ActionEvent ae) {
+
+            String cmd = ae.getActionCommand();
+            if (cmd.equals("NEXT TURN") && (Game.getWinnerID()==-1)) { // if NEXT TURN is pressed
+                actives[turn].getMyBoard().displayShipTypes(false);
+                actives[turn].getMyBoard().buttonGridSetEnabled(true);
+                turn = (turn == 0) ? 1 : 0;
+                actives[turn].getMyBoard().buttonGridSetEnabled(false);
+                infoField.setText("Current turn is " + actives[turn].getName() + " to fire");
+                System.out.println(actives[0].getMyBoard().getTotalShots());
+                if (actives[0].getMyBoard().getTotalShots() > 0 && actives[1].getMyBoard().getTotalShots() > 0) { // only allow the result button to be pressed if moves have been made
+                    resultButton.setEnabled(true);
+                }
+            } else if (cmd.equals("RESULT")) {
+                endScreen();
+            }
+        }
+    }
+
+    // endScreen frame
+    private static void endScreen() {
+        endFrame = new JFrame("The Winner");
+        endFrame.setSize(2000, 900);
+        endFrame.getContentPane().setLayout(new BorderLayout());
+        endFrame.getContentPane().setBackground(Color.BLACK);
+        endFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        // winner
+        String winnerName = (winnerID == -1) ? "" : Game.getPlayer(winnerID).getName();
+        JLabel nameLabel = new JLabel(winnerName, JLabel.CENTER);
+        nameLabel.setFont(new Font("Times New Roman", Font.BOLD, 20));
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // victory image
+        ImageIcon winnerIcon = new ImageIcon("victory.png");
+        JLabel winnerLabel = new JLabel("", winnerIcon, JLabel.CENTER);
+        winnerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // create topbox
+        Box topBox = Box.createVerticalBox();
+        topBox.setBorder(BorderFactory.createEmptyBorder(200, 20, 50, 20));
+        topBox.add(winnerLabel, Box.CENTER_ALIGNMENT);
+        topBox.add(Box.createRigidArea(new Dimension(0, 20)));
+        topBox.add(nameLabel, Box.CENTER_ALIGNMENT);
+
+        // create table to show player1 statistics
+        int totalMiss0 = actives[0].getOppBoard().getTotalShots()-actives[0].getOppBoard().getTotalHits();
+        double missPerc0 = totalMiss0 * 10000 / actives[0].getOppBoard().getTotalShots(); // at most four digits
+        missPerc0 /= 100;
+        double hitPerc0 = actives[0].getOppBoard().getTotalHits() * 10000 / actives[0].getOppBoard().getTotalShots();
+        hitPerc0 /= 100;
+        String[] headers0 = {actives[0].getName(), "Result"};
+        Object[][] data0 = {{"Shot", actives[0].getOppBoard().getTotalShots()},
+                {"Miss", totalMiss0},
+                {"Hit", actives[0].getOppBoard().getTotalHits()},
+                {"Miss%", missPerc0},
+                {"Hit%", hitPerc0}};
+        JTable table1 = new JTable(data0, headers0);
+        table1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table1.getColumnModel().getColumn(0).setPreferredWidth(100);
+        table1.getColumnModel().getColumn(1).setPreferredWidth(50);
+        table1.setPreferredScrollableViewportSize(table1.getPreferredSize());
+        JScrollPane scrollPane1 = new JScrollPane(table1);
+
+        // create table to show player2 information
+        int totalMiss1 = actives[1].getOppBoard().getTotalShots()-actives[1].getOppBoard().getTotalHits();
+        double missPerc1 = totalMiss1 * 10000 / actives[1].getOppBoard().getTotalShots();
+        missPerc1 /= 100;
+        double hitPerc1 = actives[1].getOppBoard().getTotalHits() * 10000 / actives[1].getOppBoard().getTotalShots();
+        hitPerc1 /= 100;
+        String[] headers1 = {actives[1].getName(), "Result"};
+        Object[][] data1 = {{"Shot", actives[1].getOppBoard().getTotalShots()},
+                {"Miss", totalMiss1},
+                {"Hit", actives[1].getOppBoard().getTotalHits()},
+                {"Miss%", missPerc1},
+                {"Hit%", hitPerc1}};
+        JTable table2 = new JTable(data1, headers1);
+        table2.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table2.getColumnModel().getColumn(0).setPreferredWidth(100);
+        table2.getColumnModel().getColumn(1).setPreferredWidth(50);
+        table2.setPreferredScrollableViewportSize(table2.getPreferredSize());
+        JScrollPane scrollPane2 = new JScrollPane(table2);
+
+        // put two tables in centBox
+        Box centBox = Box.createHorizontalBox();
+        centBox.setBorder(BorderFactory.createEmptyBorder(0, 200, 50, 200));
+        centBox.add(Box.createGlue());
+        centBox.add(scrollPane1);
+        centBox.add(scrollPane2);
+        centBox.add(Box.createGlue());
+
+        // create revenge button
+        JButton revengeButton = new JButton("Get Revenge!");
+        revengeButton.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        revengeButton.setMargin(new Insets(5, 5, 5, 5));
+        playAgainListener againListener = new playAgainListener();
+        revengeButton.addActionListener(againListener);
+
+        // create botbox
+        Box botBox = Box.createHorizontalBox();
+        botBox.setBorder(BorderFactory.createEmptyBorder(20, 20, 200, 20));
+        botBox.add(Box.createGlue());
+        botBox.add(revengeButton);
+        botBox.add(Box.createGlue());
+
+        Container panel = endFrame.getContentPane();
+        panel.add(topBox, BorderLayout.PAGE_START);
+        panel.add(centBox, BorderLayout.CENTER);
+        panel.add(botBox, BorderLayout.PAGE_END);
+
+        //display the frame
+        endFrame.setVisible(true);
+    }
+
+    // listener for end screen
+    private static class playAgainListener implements ActionListener {
+        public void actionPerformed(ActionEvent ae) {
+            playFrame.dispose();
+            endFrame.dispose();
+        }
+    }
+
+    /**
+     * main method
+     * @param args
+     */
+    public static void main(String[] args) {
+        Game battleGame = new Game();
+        battleGame.startScreen();
+    }
+}

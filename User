@@ -1,0 +1,37 @@
+/**
+ * @author Charles Huang
+ * @author Jacqueline Chuang
+ *
+ * Project: Battleship Game
+ * Teacher: Ms. Hemiup
+ * Spring 2022
+ */
+
+/**
+ * User class pretty much just contains getters and setters that aid the login
+ */
+
+public class User {
+    String username;
+    String password;
+
+    public User(String u, String p) {
+        username = u;
+        password = p;
+    }
+
+    // getters
+    public String getUser() {
+        return username;
+    }
+
+    public String getPass() {
+        return password;
+    }
+
+    // setters
+    public void setPass(String p) {
+        password = p;
+    }
+
+}
